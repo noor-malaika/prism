@@ -1,0 +1,69 @@
+{
+  "name": "prism-lsp-bridge",
+  "displayName": "Prism",
+  "description": "VS Code LSP → MCP bridge for Claude Code",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Prism",
+      "properties": {
+        "prism.port": {
+          "type": "number",
+          "default": 7878,
+          "description": "Local port for the MCP server"
+        },
+        "prism.enabledTools": {
+          "type": "array",
+          "default": [
+            "references",
+            "definition",
+            "typeDefinition",
+            "implementations",
+            "diagnostics",
+            "symbols",
+            "callHierarchy"
+          ],
+          "description": "Which LSP capabilities to expose as MCP tools"
+        },
+        "prism.lspRetryCount": {
+          "type": "number",
+          "default": 10,
+          "description": "Max retry attempts waiting for language server before failing a tool call"
+        },
+        "prism.lspRetryIntervalMs": {
+          "type": "number",
+          "default": 500,
+          "description": "Milliseconds between each language server retry attempt"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "prism.reindex",
+        "title": "Prism: Force LSP Reindex"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && npx vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.116.0",
+    "esbuild": "^0.20.2",
+    "typescript": "^5.9.3"
+  }
+}
