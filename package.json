@@ -22,6 +22,19 @@
           "default": 7878,
           "description": "Local port for the MCP server"
         },
+        "prism.agent": {
+          "type": "string",
+          "default": "Claude Code",
+          "enum": [
+            "Claude Code",
+            "Github Copilot"
+          ],
+          "enumDescriptions": [
+            "Claude Code MCP discovery file (.mcp.json)",
+            "GitHub Copilot MCP discovery file (.vscode/mcp.json)"
+          ],
+          "description": "Which MCP client Prism should write configuration for"
+        },
         "prism.enabledTools": {
           "type": "array",
           "default": [

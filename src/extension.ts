@@ -59,13 +59,14 @@ let server: PrismMCPServer | undefined;
 export function activate(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration('prism');
   const port = config.get<number>('port', 7878);
+  const agent = config.get<string>('agent', 'Claude Code');
 
   server = new PrismMCPServer(port);
   // start() is async because port binding is non-blocking; actualPort may differ from `port` if the preferred port was in use
   server.start()
     .then((actualPort) => {
-      injectMCPConfig(actualPort).catch((err) => {
-        vscode.window.showWarningMessage(`Prism: failed to write .mcp.json — ${err.message}`);
+      injectMCPConfig(actualPort, agent).catch((err) => {
+        vscode.window.showWarningMessage(`Prism: failed to write MCP config — ${err.message}`);
       });
       vscode.window.setStatusBarMessage(`Prism MCP running on :${actualPort}`, 3000);
     })
@@ -133,20 +134,29 @@ export function deactivate() {
  *   with a filesystem error (the caller surfaces this as a VS Code warning
  *   message).
  */
-async function injectMCPConfig(port: number) {
+async function injectMCPConfig(port: number, agent: string) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) return;
 
-  const mcpPath = path.join(workspaceRoot, '.mcp.json');
-  let config: Record<string, unknown> = {};
+  const useVSCodeMCP = agent === 'Github Copilot';
+  const configDir = useVSCodeMCP ? path.join(workspaceRoot, '.vscode') : workspaceRoot;
+  const mcpPath = path.join(configDir, useVSCodeMCP ? 'mcp.json' : '.mcp.json');
 
+  if (useVSCodeMCP) {
+    await fs.mkdir(configDir, { recursive: true });
+  }
+
+  let config: Record<string, unknown> = {};
   try {
     config = JSON.parse(await fs.readFile(mcpPath, 'utf8'));
   } catch { /* file doesn't exist yet */ }
 
-  // Spread existing mcpServers so other tools registered in .mcp.json are not wiped out
-  config.mcpServers = {
-    ...((config.mcpServers as object) ?? {}),
+  const serverKey = useVSCodeMCP ? 'servers' : 'mcpServers';
+  const existingServers = (config[serverKey] as object) ?? {};
+
+  // Preserve existing MCP server registrations while adding/updating Prism.
+  config[serverKey] = {
+    ...existingServers,
     prism: { type: 'http', url: `http://localhost:${port}` }
   };
 
@@ -155,7 +165,6 @@ async function injectMCPConfig(port: number) {
   try {
     await fs.rename(tmpPath, mcpPath);
   } catch (err) {
-    // Clean up the orphaned temp file before re-throwing so it is not left behind
     await fs.unlink(tmpPath).catch(() => { /* ignore secondary cleanup errors */ });
     throw err;
   }
