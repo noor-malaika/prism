@@ -4,6 +4,8 @@
 
 Claude Code (CC) navigates codebases using grep and tree-sitter heuristics: pattern matching over text rather than semantic understanding. Meanwhile, every VS Code workspace already runs one or more language servers (TypeScript, rust-analyzer, Pylance, etc.) that maintain a full semantic index — exact type information, cross-file references, call graphs, and live diagnostics. Prism bridges these two worlds. It is a VS Code extension that acts simultaneously as an LSP client (consuming VS Code's built-in language server APIs) and as an MCP server (exposing those capabilities over HTTP). When CC needs to resolve a symbol, find all callers of a function, or check for type errors, it calls a Prism MCP tool instead of grepping source files — and gets back the same answer the IDE would give a human developer.
 
+Prism is language-agnostic: it wraps VS Code's LSP client infrastructure, so any language server registered with VS Code can be queried. **Tested with TypeScript (bundled with VS Code) and rust-analyzer.** Other servers implementing the standard LSP capabilities (Pylance, pylsp, etc.) should work without changes.
+
 ---
 
 ## 2. Architecture
@@ -13,7 +15,7 @@ Claude Code (CC) navigates codebases using grep and tree-sitter heuristics: patt
 The extension plays two roles in the same process:
 
 - **LSP client**: calls `vscode.commands.executeCommand` with standard VS Code command IDs (`vscode.executeReferenceProvider`, `vscode.executeDefinitionProvider`, etc.). VS Code routes these to whichever language server is registered for the active file's language. Prism never speaks the LSP wire protocol directly — it delegates to VS Code's built-in LSP client infrastructure.
-- **MCP server**: runs a plain Node.js `http.Server` bound to `localhost` (default port 7878). It serves the MCP tool manifest at `GET /` and accepts tool invocations at `POST /`. The HTTP layer is intentionally minimal — no framework dependency, no SSE, no authentication beyond the loopback restriction.
+- **MCP server**: runs a plain Node.js `http.Server` bound to `localhost` (default port 7878). It speaks JSON-RPC 2.0 over `POST /`: `initialize` for handshake, `tools/list` for the tool manifest, and `tools/call` for tool invocations. `OPTIONS /` is handled for CORS pre-flight; all other methods return `405`. The HTTP layer is intentionally minimal — no framework dependency, no SSE, no authentication beyond the loopback restriction.
 
 ### Component Diagram
 
@@ -30,24 +32,24 @@ The extension plays two roles in the same process:
         v
   Prism Extension       (this codebase — runs in VS Code extension host)
         ^
-        | HTTP POST { tool, params }
+        | HTTP JSON-RPC 2.0 POST /
         v
   Claude Code           (MCP client — calls tools during agentic tasks)
 ```
 
 ### Request Lifecycle
 
-1. CC decides it needs semantic information and issues an HTTP POST to `http://localhost:7878` with body `{ "tool": "find_references", "params": { "symbol": "MyClass", "file": "/path/to/file.ts" } }`.
-2. `PrismMCPServer.handleRequest` reads the body and calls `dispatch(tool, params)`.
+1. CC decides it needs semantic information and issues an HTTP POST to `http://localhost:7878` with a JSON-RPC 2.0 body: `{ "jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": { "name": "find_references", "arguments": { "symbol": "MyClass", "file": "/path/to/file.ts" } } }`.
+2. `PrismMCPServer.handleRequest` parses the body, reads `msg.method`, and for `tools/call` extracts `params.name` and `params.arguments`, then calls `dispatch(toolName, args)`.
 3. `dispatch` routes to the appropriate tool function (e.g. `findReferences`).
 4. The tool calls `resolveSymbolLocation` to obtain a `{ uri, position }` pair that VS Code commands require.
 5. The tool issues `vscode.commands.executeCommand('vscode.executeReferenceProvider', uri, position)`.
 6. VS Code routes the command to the registered language server; the LS returns `Location[]`.
 7. The tool maps the result to a plain JSON-serialisable structure (1-indexed lines/columns, `fsPath` strings, preview text).
-8. `dispatch` returns the value; `handleRequest` wraps it in `{ result: ... }` and writes it to the HTTP response.
+8. `dispatch` returns the value; `handleRequest` wraps it as `{ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result) }] } }` and writes it to the HTTP response.
 9. CC receives the JSON and continues its task.
 
-On error at any step, a `500` response with `{ "error": "<message>" }` is returned.
+On error at any step, a `500` response with a JSON-RPC 2.0 error object `{ jsonrpc: "2.0", id, error: { code: -32603, message: "..." } }` is returned. Unknown methods return a `200` with an error object using code `-32601`.
 
 ---
 
@@ -103,12 +105,12 @@ The command cannot verify that the LS has actually finished reindexing. Readines
 
 ### Config Knobs
 
-| Key                          | Default | Effect                                                              |
-| ---------------------------- | ------- | ------------------------------------------------------------------- |
-| `prism.lspRetryCount`      | 20      | Maximum number of retry attempts in `withLSRetry` before throwing |
-| `prism.lspRetryIntervalMs` | 1000    | Milliseconds to sleep between attempts                              |
+| Key | Default | Effect |
+| --- | --- | --- |
+| `prism.lspRetryCount` | 10 | Maximum number of retry attempts in `withLSRetry` before throwing |
+| `prism.lspRetryIntervalMs` | 500 | Milliseconds to sleep between attempts |
 
-With defaults, a tool call will wait up to 20 seconds for the LS to return a non-empty result before failing. Increase `lspRetryCount` for large monorepos where initial indexing takes longer.
+With defaults, a tool call will wait up to 5 seconds for the LS to return a non-empty result before failing. Increase `lspRetryCount` for large monorepos where initial indexing takes longer.
 
 ---
 
@@ -116,24 +118,25 @@ With defaults, a tool call will wait up to 20 seconds for the LS to return a non
 
 | Tool                     | VS Code command                                                                                                             | Key params                                                                                  | Notes                                                                                                        |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `find_references`      | `vscode.executeReferenceProvider`                                                                                         | `symbol`, `file?`                                                                       | Returns all reference locations including the declaration site; lines are 1-indexed                          |
-| `go_to_definition`     | `vscode.executeDefinitionProvider`                                                                                        | `symbol`, `file?`                                                                       | Returns declaration location(s); multiple results possible for merged declarations                           |
-| `find_implementations` | `vscode.executeImplementationProvider`                                                                                    | `symbol`, `file?`                                                                       | Finds concrete classes/functions implementing an interface or abstract method                                |
-| `get_type`             | `vscode.executeTypeDefinitionProvider`                                                                                    | `symbol`, `file?`                                                                       | Returns the location of the type alias or interface declaration, not an inferred type string; see Known Gaps |
-| `get_diagnostics`      | `vscode.languages.getDiagnostics`                                                                                         | `file?`                                                                                   | Reads the diagnostic collection for a specific URI; falls back to active editor if no file given             |
-| `list_symbols`         | `vscode.executeWorkspaceSymbolProvider` (workspace) / `vscode.executeDocumentSymbolProvider` (file)                     | `query`, `scope`, `file?`                                                             | `scope=file` requires `file`; file-scope results are flattened recursively from the document symbol tree |
-| `get_call_hierarchy`   | `vscode.prepareCallHierarchy`, `vscode.provideCallHierarchyIncomingCalls`, `vscode.provideCallHierarchyOutgoingCalls` | `symbol`, `file?`, `direction` (incoming/outgoing/both), `depth` (default 1, max 5) | Builds a recursive `CallNode` tree; depth is capped at 5 to avoid runaway recursion                        |
+| `find_references`      | `vscode.executeReferenceProvider`                                                                                         | `symbol` (required), `file` (required)                                                  | Returns all reference locations including the declaration site; lines are 1-indexed                          |
+| `go_to_definition`     | `vscode.executeDefinitionProvider`                                                                                        | `symbol` (required), `file` (required)                                                  | Returns declaration location(s); multiple results possible for merged declarations                           |
+| `find_implementations` | `vscode.executeImplementationProvider`                                                                                    | `symbol` (required), `file` (required)                                                  | Finds concrete classes/functions implementing an interface or abstract method                                |
+| `get_type`             | `vscode.executeTypeDefinitionProvider`                                                                                    | `symbol` (required), `file` (required)                                                  | Returns the location of the type alias or interface declaration, not an inferred type string; see Known Gaps |
+| `get_diagnostics`      | `vscode.languages.getDiagnostics`                                                                                         | `file` (required)                                                                         | Reads the diagnostic collection for a specific URI; no fallback to active editor                             |
+| `list_symbols`         | `vscode.executeWorkspaceSymbolProvider` (workspace) / `vscode.executeDocumentSymbolProvider` (file)                     | `query` (required), `scope` (required), `file` (required when `scope=file`)          | `scope=file` requires `file`; file-scope results are flattened recursively from the document symbol tree |
+| `get_call_hierarchy`   | `vscode.prepareCallHierarchy`, `vscode.provideIncomingCalls`, `vscode.provideOutgoingCalls` | `symbol` (required), `file` (required), `direction` (incoming/outgoing/both), `depth` (default 1, max 3) | Builds a recursive `CallNode` tree; depth is capped at 3 and total nodes at 100 to avoid runaway recursion |
 
 ---
 
 ## 6. Configuration Reference
 
-| Key                          | Type   | Default     | When to Change                                                                                                                                                                   |
-| ---------------------------- | ------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prism.port`               | number | `7878`    | Change if 7878 is in use by another process; the extension will auto-increment up to 7900 if the preferred port is busy, but `.mcp.json` is written with the actual bound port |
-| `prism.enabledTools`       | array  | all 7 tools | Intended to restrict which tools are advertised and dispatched; currently not enforced in dispatch (see Known Gaps)                                                              |
-| `prism.lspRetryCount`      | number | `20`      | Increase for large monorepos or slow machines where LS indexing takes more than 20 seconds on first call                                                                         |
-| `prism.lspRetryIntervalMs` | number | `1000`    | Decrease for faster feedback in well-tuned environments; increase if aggressive polling causes LS instability                                                                    |
+| Key | Type | Default | When to Change |
+| --- | --- | --- | --- |
+| `prism.port` | number | `7878` | Change if 7878 is in use by another process; the extension will auto-increment up to 7900 if the preferred port is busy, but the MCP config file is written with the actual bound port |
+| `prism.agent` | string | `"Claude Code"` | Controls which MCP config file is written. `"Claude Code"` writes `.mcp.json` at the workspace root (key `mcpServers`). `"Github Copilot"` writes `.vscode/mcp.json` (key `servers`), creating the directory if needed. |
+| `prism.enabledTools` | array | all 7 tools | Intended to restrict which tools are advertised and dispatched; currently not enforced in dispatch (see Known Gaps) |
+| `prism.lspRetryCount` | number | `10` | Increase for large monorepos or slow machines where LS indexing takes more than 5 seconds on first call |
+| `prism.lspRetryIntervalMs` | number | `500` | Decrease for faster feedback in well-tuned environments; increase if aggressive polling causes LS instability |
 
 ---
 
@@ -141,7 +144,7 @@ With defaults, a tool call will wait up to 20 seconds for the LS to return a non
 
 **`get_type` returns a declaration location, not a type string.** `executeTypeDefinitionProvider` returns the location of the type alias or interface declaration for a symbol. It does not return the inferred type string (e.g. `string | number`) that a hover tooltip would show. To get hover-style type information, a `vscode.executeHoverProvider` call would be needed and its Markdown output parsed — not yet implemented.
 
-**`get_diagnostics` only works for already-open files.** `vscode.languages.getDiagnostics(uri)` reads diagnostics from VS Code's in-memory diagnostic collection. A file that has never been opened in the editor will have no diagnostics registered, even if it contains errors. Workspace-wide diagnostics require either opening all files programmatically or relying on a language server that populates diagnostics for closed files (behaviour varies by LS).
+**`get_diagnostics` only works for already-open files.** `vscode.languages.getDiagnostics(uri)` reads diagnostics from VS Code's in-memory diagnostic collection. A file that has never been opened in the editor will have no diagnostics registered, even if it contains errors. The `file` parameter is required — the tool no longer falls back to the active editor. Workspace-wide diagnostics require either opening all files programmatically or relying on a language server that populates diagnostics for closed files (behaviour varies by LS).
 
 **`list_symbols` with `scope=file` may return empty for freshly created files.** `executeDocumentSymbolProvider` depends on the language server having parsed and indexed the file. A file that was just created and saved may not yet be in the LS index. Waiting a moment and retrying, or calling `prism.reindex`, is the workaround.
 
