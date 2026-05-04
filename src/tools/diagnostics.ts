@@ -55,12 +55,8 @@ const MAX_DIAGNOSTICS = 50;
  *   Returns an empty array when no URI can be resolved or when the file has no
  *   diagnostics.
  */
-export async function getDiagnostics(params: { file?: string }) {
-  const uri = params.file
-    ? vscode.Uri.file(resolveFilePath(params.file))
-    : vscode.window.activeTextEditor?.document.uri; // best guess when CC doesn't know which file has errors
-
-  if (!uri) return [];
+export async function getDiagnostics(params: { file: string }) {
+  const uri = vscode.Uri.file(resolveFilePath(params.file));
 
   const resolvedFile = uri.fsPath;
   const all = vscode.languages.getDiagnostics(uri);

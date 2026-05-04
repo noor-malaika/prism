@@ -60,13 +60,13 @@ Then install the `.vsix` via **Extensions: Install from VSIX…** in the command
 
 ## Configuration
 
-| Key                          | Default           | Description                                                                                                                                                 |
-| ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prism.port`               | `7878`          | HTTP port. Auto-increments to 7900 if busy;`.mcp.json` is written with the actual bound port.                                                             |
-| `prism.lspRetryCount`      | `10`            | Max retries waiting for the language server before a tool call fails.                                                                                       |
-| `prism.lspRetryIntervalMs` | `500`           | Milliseconds between retries.                                                                                                                               |
-| `prism.enabledTools`       | all tools         | Which tools to advertise (dispatch enforcement pending — see Known gaps).                                                                                  |
-| `prism.agent`              | `"Claude Code"` | Which MCP client to write configuration for.`"Claude Code"` writes `.mcp.json` at the workspace root; `"Github Copilot"` writes `.vscode/mcp.json`. |
+| Key                        | Default         | Description                                                                                                                                          |
+| -------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prism.port`               | `7878`          | HTTP port. Auto-increments to 7900 if busy; `.mcp.json` is written with the actual bound port.                                                       |
+| `prism.lspRetryCount`      | `10`            | Max retries waiting for the language server before a tool call fails.                                                                                |
+| `prism.lspRetryIntervalMs` | `1000`          | Milliseconds between retries.                                                                                                                        |
+| `prism.enabledTools`       | all tools       | **Not yet implemented (no-op).** The setting is declared but `server.ts` does not read it — all 7 tools are always active. See Known gaps.           |
+| `prism.agent`              | `"Claude Code"` | Which MCP client to write configuration for. `"Claude Code"` writes `.mcp.json` at the workspace root; `"Github Copilot"` writes `.vscode/mcp.json`. |
 
 ---
 
@@ -100,6 +100,8 @@ Both approaches used roughly the same tokens. Prism returned the semantically co
 **`enabledTools` is not enforced in dispatch.** The config key is declared but `server.ts` does not read it — all 7 tools are always active. Fix pending before stable release.
 
 **`prism.reindex` cannot verify LS readiness.** The command saves all dirty buffers and calls `resetLSReady()` (a no-op — retry logic is stateless), but cannot poll the language server for completion. Readiness is discovered on the next tool call via the retry loop.
+
+**Tool call and socket timeouts.** Each tool call times out after 25 s; the HTTP server socket timeout is 30 s. Calls that exceed the tool timeout return a JSON-RPC error; the socket timeout closes idle connections.
 
 **No streaming.** All tool calls are synchronous request/response. Diagnostic changes are not pushed to the agent — it must poll `get_diagnostics` explicitly.
 

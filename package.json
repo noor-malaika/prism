@@ -1,8 +1,9 @@
 {
   "name": "prism-lsp-bridge",
-  "displayName": "Prism",
-  "description": "VS Code LSP → MCP bridge for Claude Code",
-  "version": "0.1.0",
+  "publisher": "malaika-noor",
+  "displayName": "Prism (Beta)",
+  "description": "VS Code LSP → MCP bridge for Claude Code — beta feedback build",
+  "version": "0.1.0-beta.1",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -12,6 +13,11 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noor-malaika/prism.git"
+  },
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
@@ -55,7 +61,7 @@
         },
         "prism.lspRetryIntervalMs": {
           "type": "number",
-          "default": 500,
+          "default": 1000,
           "description": "Milliseconds between each language server retry attempt"
         }
       }
@@ -71,11 +77,15 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "package": "npm run build && npx vsce package"
+    "package": "npm run build && node_modules/.bin/vsce package"
+  },
+  "overrides": {
+    "undici": "5"
   },
   "devDependencies": {
     "@types/node": "^18.19.130",
-    "@types/vscode": "^1.116.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.32.0",
     "esbuild": "^0.20.2",
     "typescript": "^5.9.3"
   }

@@ -108,9 +108,9 @@ The command cannot verify that the LS has actually finished reindexing. Readines
 | Key | Default | Effect |
 | --- | --- | --- |
 | `prism.lspRetryCount` | 10 | Maximum number of retry attempts in `withLSRetry` before throwing |
-| `prism.lspRetryIntervalMs` | 500 | Milliseconds to sleep between attempts |
+| `prism.lspRetryIntervalMs` | 1000 | Milliseconds to sleep between attempts |
 
-With defaults, a tool call will wait up to 5 seconds for the LS to return a non-empty result before failing. Increase `lspRetryCount` for large monorepos where initial indexing takes longer.
+With defaults, a tool call will wait up to 10 seconds for the LS to return a non-empty result before failing. Increase `lspRetryCount` for large monorepos where initial indexing takes longer.
 
 ---
 
@@ -134,9 +134,9 @@ With defaults, a tool call will wait up to 5 seconds for the LS to return a non-
 | --- | --- | --- | --- |
 | `prism.port` | number | `7878` | Change if 7878 is in use by another process; the extension will auto-increment up to 7900 if the preferred port is busy, but the MCP config file is written with the actual bound port |
 | `prism.agent` | string | `"Claude Code"` | Controls which MCP config file is written. `"Claude Code"` writes `.mcp.json` at the workspace root (key `mcpServers`). `"Github Copilot"` writes `.vscode/mcp.json` (key `servers`), creating the directory if needed. |
-| `prism.enabledTools` | array | all 7 tools | Intended to restrict which tools are advertised and dispatched; currently not enforced in dispatch (see Known Gaps) |
-| `prism.lspRetryCount` | number | `10` | Increase for large monorepos or slow machines where LS indexing takes more than 5 seconds on first call |
-| `prism.lspRetryIntervalMs` | number | `500` | Decrease for faster feedback in well-tuned environments; increase if aggressive polling causes LS instability |
+| `prism.enabledTools` | array | all 7 tools | **Not yet implemented (no-op).** The key is declared in `package.json` but `dispatch` in `server.ts` never reads it — all 7 tools are always active regardless of this setting (see Known Gaps) |
+| `prism.lspRetryCount` | number | `10` | Increase for large monorepos or slow machines where LS indexing takes more than 10 seconds on first call |
+| `prism.lspRetryIntervalMs` | number | `1000` | Decrease for faster feedback in well-tuned environments; increase if aggressive polling causes LS instability |
 
 ---
 
@@ -149,6 +149,8 @@ With defaults, a tool call will wait up to 5 seconds for the LS to return a non-
 **`list_symbols` with `scope=file` may return empty for freshly created files.** `executeDocumentSymbolProvider` depends on the language server having parsed and indexed the file. A file that was just created and saved may not yet be in the LS index. Waiting a moment and retrying, or calling `prism.reindex`, is the workaround.
 
 **`prism.reindex` cannot verify LS readiness.** The command saves all files and calls `resetLSReady()` (currently a no-op). It does not poll the LS for completion or provide any signal that reindexing has finished. The next tool call will discover readiness through `withLSRetry`.
+
+**Tool call and socket timeouts.** Each tool call times out after 25 s (enforced by `withTimeout` in `server.ts`); the HTTP server socket timeout is 30 s (set via `httpServer.setTimeout`). Calls that exceed the tool timeout return a JSON-RPC `-32603` error; the socket timeout closes idle connections.
 
 **No SSE or streaming support.** All tool calls are synchronous request/response. Diagnostic changes are not pushed to CC as they occur — CC must poll `get_diagnostics` explicitly. The MCP HTTP server does not implement Server-Sent Events.(way too advanced, what good is it gonna do apart from burning bunch of tokens?)
 

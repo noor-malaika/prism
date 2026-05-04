@@ -18,6 +18,8 @@
  */
 import * as http from 'http';
 import * as vscode from 'vscode';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version: pkgVersion } = require('../package.json') as { version: string };
 import { findReferences } from './tools/references';
 import { goToDefinition, getTypeDefinition } from './tools/definition';
 import { findImplementations } from './tools/implementations';
@@ -286,7 +288,7 @@ export class PrismMCPServer {
           jsonrpc: '2.0', id,
           result: {
             protocolVersion: '2024-11-05',
-            serverInfo: { name: 'prism', version: '0.1.0' },
+            serverInfo: { name: 'prism', version: pkgVersion },
             capabilities: { tools: {} }
           }
         }));
