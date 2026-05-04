@@ -1,5 +1,7 @@
 # Prism
 
+<p align="center"><img src="media/prism-icon.png" alt="Prism icon" width="96" /></p>
+
 A VS Code extension that bridges your workspace language servers to any MCP-capable agent via MCP — giving agents the same semantic understanding your IDE has.
 
 Agents navigating codebases typically rely on grep and tree-sitter heuristics: pattern matching over text. Your VS Code workspace already runs language servers (TypeScript, rust-analyzer, Pylance, …) that maintain a full semantic index — exact types, cross-file references, call graphs, live diagnostics. Prism exposes those capabilities as MCP tools so any agent can query them directly instead of guessing from text.

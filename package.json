@@ -8,11 +8,27 @@
     "vscode": "^1.85.0"
   },
   "categories": [
+    "Programming Languages",
+    "Linters",
     "Other"
+  ],
+  "keywords": [
+    "mcp",
+    "lsp",
+    "claude",
+    "agents",
+    "claude code",
+    "ai",
+    "copilot",
+    "language server",
+    "diagnostics",
+    "code intelligence"
   ],
   "activationEvents": [
     "onStartupFinished"
   ],
+  "icon": "media/prism-icon.png",
+  "preview": true,
   "license": "MIT",
   "repository": {
     "type": "git",
