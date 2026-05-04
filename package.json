@@ -1,9 +1,9 @@
 {
   "name": "prism-lsp-bridge",
-  "publisher": "malaika-noor",
+  "publisher": "MalaikaNoor",
   "displayName": "Prism (Beta)",
   "description": "VS Code LSP → MCP bridge for Claude Code — beta feedback build",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.85.0"
   },
