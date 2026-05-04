@@ -87,6 +87,7 @@ Benchmarked using **Claude Code(Sonnet 4.6)** as the agent.
 
 Both approaches used roughly the same tokens. Prism returned the semantically correct answer; grep returned a structurally incomplete one.
 
+<video src="https://github.com/user-attachments/assets/e9a2e5c6-8692-43b5-aab9-55a9a9038f28" controls width="100%"></video>
 
 ---
 
