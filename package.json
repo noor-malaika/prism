@@ -1,15 +1,16 @@
 {
   "name": "prism-lsp-bridge",
   "publisher": "MalaikaNoor",
-  "displayName": "Prism (Beta)",
-  "description": "VS Code LSP → MCP bridge for Claude Code — beta feedback build",
-  "version": "0.1.0",
+  "displayName": "Prism",
+  "description": "VS Code LSP → MCP bridge — gives AI agents the same code intelligence your IDE has",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
+    "AI",
+    "Chat",
     "Programming Languages",
-    "Linters",
     "Other"
   ],
   "keywords": [
@@ -28,7 +29,7 @@
     "onStartupFinished"
   ],
   "icon": "media/prism-icon.png",
-  "preview": true,
+  "preview": false,
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -96,13 +97,13 @@
     "package": "npm run build && node_modules/.bin/vsce package"
   },
   "overrides": {
-    "undici": "5"
+    "undici": ">=6.23.1"
   },
   "devDependencies": {
     "@types/node": "^18.19.130",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.32.0",
-    "esbuild": "^0.20.2",
+    "esbuild": "^0.28.0",
     "typescript": "^5.9.3"
   }
 }
