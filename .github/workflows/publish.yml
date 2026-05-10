@@ -24,6 +24,4 @@ jobs:
 
       - name: Publish to marketplace
         if: github.ref == 'refs/heads/main'
-        run: npx vsce publish --no-git-tag-version
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish -p ${{ secrets.VSCE_PAT }} --no-git-tag-version
