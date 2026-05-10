@@ -1,7 +1,7 @@
 {
   "name": "prism-lsp-bridge",
   "publisher": "MalaikaNoor",
-  "displayName": "Prism",
+  "displayName": "Prism LSP",
   "description": "VS Code LSP → MCP bridge — gives AI agents the same code intelligence your IDE has",
   "version": "1.0.0",
   "engines": {
