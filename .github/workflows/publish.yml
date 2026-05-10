@@ -4,15 +4,9 @@ on:
   push:
     branches:
       - '**'
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
 
 jobs:
   publish:
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -29,9 +23,5 @@ jobs:
         run: npm run package
 
       - name: Publish to marketplace
-        if: >
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
-        run: npx vsce publish --no-git-tag-version
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        if: github.ref == 'refs/heads/main'
+        run: npx vsce publish -p ${{ secrets.VSCE_PAT }} --no-git-tag-version
