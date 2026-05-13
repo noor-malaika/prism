@@ -364,7 +364,7 @@ export class PrismMCPServer {
       case 'find_implementations': return findImplementations(params as { symbol: string; file: string });
       // get_type previously aliased go_to_definition by mistake; it now correctly calls getTypeDefinition for type-declaration lookup
       case 'get_type':             return getTypeDefinition(params as { symbol: string; file: string });
-      case 'get_diagnostics':      return getDiagnostics(params as { file?: string });
+      case 'get_diagnostics':      return getDiagnostics(params as { file: string });
       case 'list_symbols':         return listSymbols(params as { query: string; scope: 'workspace' | 'file'; file?: string });
       case 'get_call_hierarchy':   return getCallHierarchy(params as { symbol: string; file: string; direction?: 'incoming' | 'outgoing' | 'both'; depth?: number });
       default: throw new Error(`Unknown tool: ${String(tool)}`);

@@ -1,8 +1,8 @@
 {
   "name": "prism-lsp-bridge",
   "publisher": "MalaikaNoor",
-  "displayName": "Prism LSP",
-  "description": "VS Code LSP → MCP bridge — gives AI agents the same code intelligence your IDE has",
+  "displayName": "Prism MCP",
+  "description": "Connect AI agents to VS Code language service providers (LSP) through MCP",
   "version": "1.0.0",
   "engines": {
     "vscode": "^1.85.0"
