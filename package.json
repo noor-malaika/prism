@@ -3,7 +3,7 @@
   "publisher": "MalaikaNoor",
   "displayName": "Prism MCP",
   "description": "Connect AI agents to VS Code language service providers (LSP) through MCP",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.85.0"
   },
