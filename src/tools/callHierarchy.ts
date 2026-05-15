@@ -112,7 +112,7 @@ export async function getCallHierarchy(params: {
         location.uri,
         location.position
       )),
-      (v) => !v || (v as unknown[]).length === 0
+      (v) => v === null || v === undefined
     );
   } catch (err) {
     if (String(err).includes('command') || String(err).includes('not found')) {
@@ -186,8 +186,6 @@ async function buildNode(
   if (direction === 'incoming' || direction === 'both') {
     try {
       const calls = await withLSRetry(
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //--------------------------mark: y is this timing out?--------------------------------
         () => Promise.resolve(vscode.commands.executeCommand<vscode.CallHierarchyIncomingCall[]>(
           'vscode.provideIncomingCalls',
           item

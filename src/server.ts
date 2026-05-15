@@ -206,7 +206,11 @@ export class PrismMCPServer {
             // close() must complete before listen() can be called again on the same server instance
             this.httpServer.close(() => {
               attachErrorHandler();
-              this.httpServer.listen(this.port, '127.0.0.1');
+              this.httpServer.listen(this.port, '127.0.0.1', () => {
+                const addr = this.httpServer.address();
+                this.actualPort = typeof addr === 'object' && addr ? addr.port : this.port;
+                resolve(this.actualPort);
+              });
             });
           } else {
             reject(err);

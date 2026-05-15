@@ -67,7 +67,7 @@ export async function goToDefinition(params: { symbol: string; file: string }) {
       location.uri,
       location.position
     )),
-    (v) => !v || (v as unknown[]).length === 0
+    (v) => v === null || v === undefined
   );
 
   const all = (defs ?? []).map((d) => {
@@ -139,7 +139,7 @@ export async function getTypeDefinition(params: { symbol: string; file: string }
       location.uri,
       location.position
     )),
-    (v) => !v || (v as unknown[]).length === 0
+    (v) => v === null || v === undefined
   );
 
   const all = (defs ?? []).map((d) => {

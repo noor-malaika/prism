@@ -107,7 +107,7 @@ export async function resolveSymbolLocation(
   // it's a fuzzy search above, turning down to an exact one
   const exact = symbols?.find((s) => s.name === symbol);
   if (exact) {
-    return { uri: exact.location.uri, position: exact.location.range.start };
+    return { uri: exact.location.uri, position: await pinToSymbolName(symbol, exact.location.uri, exact.location.range.start) };
   }
 
   // Overloaded symbol names exist across packages; caller's file is the most likely intent
@@ -119,7 +119,8 @@ export async function resolveSymbolLocation(
           return aMatch - bMatch;
         })
       : symbols;
-    return { uri: ranked[0].location.uri, position: ranked[0].location.range.start };
+    const best = ranked[0];
+    return { uri: best.location.uri, position: await pinToSymbolName(symbol, best.location.uri, best.location.range.start) };
   }
 
   if (hintFile) {
@@ -157,6 +158,30 @@ export async function resolveSymbolLocation(
  * comment or string literal. Callers should treat the result as a best-effort
  * hint rather than a definitive declaration location.
  */
+/**
+ * Adjusts a position returned by the workspace symbol provider so it lands on
+ * the symbol identifier token rather than the start of the declaration line.
+ *
+ * LSP commands like `prepareCallHierarchy` require the cursor to be on the
+ * identifier itself (e.g. the `g` of `getDirs`), not on a leading keyword like
+ * `export` or `function`. The workspace symbol provider returns `range.start`
+ * which points to the beginning of the whole declaration, so we scan the line
+ * from that column forward to find the first occurrence of the symbol name.
+ */
+async function pinToSymbolName(
+  symbol: string,
+  uri: vscode.Uri,
+  fallback: vscode.Position
+): Promise<vscode.Position> {
+  try {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const lineText = doc.lineAt(fallback.line).text;
+    const col = lineText.indexOf(symbol, fallback.character);
+    if (col !== -1) return new vscode.Position(fallback.line, col);
+  } catch { /* fall through */ }
+  return fallback;
+}
+
 async function findDeclarationInFile(
   symbol: string,
   filePath: string

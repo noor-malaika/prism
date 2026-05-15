@@ -65,7 +65,9 @@ export function activate(context: vscode.ExtensionContext) {
   // start() is async because port binding is non-blocking; actualPort may differ from `port` if the preferred port was in use
   server.start()
     .then((actualPort) => {
-      injectMCPConfig(actualPort, agent).catch((err) => {
+      injectMCPConfig(actualPort, agent).then((writtenPath) => {
+        vscode.window.setStatusBarMessage(`Prism MCP :${actualPort} → ${writtenPath}`, 5000);
+      }).catch((err) => {
         vscode.window.showWarningMessage(`Prism: failed to write MCP config — ${err.message}`);
       });
       vscode.window.setStatusBarMessage(`Prism MCP running on :${actualPort}`, 3000);
@@ -134,9 +136,11 @@ export function deactivate() {
  *   with a filesystem error (the caller surfaces this as a VS Code warning
  *   message).
  */
-async function injectMCPConfig(port: number, agent: string) {
+async function injectMCPConfig(port: number, agent: string): Promise<string> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) return;
+  if (!workspaceRoot) {
+    throw new Error('no workspace folder open — open a folder in VS Code so Prism knows where to write the MCP config');
+  }
 
   const useVSCodeMCP = agent === 'Github Copilot';
   const configDir = useVSCodeMCP ? path.join(workspaceRoot, '.vscode') : workspaceRoot;
@@ -168,4 +172,5 @@ async function injectMCPConfig(port: number, agent: string) {
     await fs.unlink(tmpPath).catch(() => { /* ignore secondary cleanup errors */ });
     throw err;
   }
+  return mcpPath;
 }
