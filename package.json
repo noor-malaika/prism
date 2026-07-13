@@ -94,6 +94,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "package": "npm run build && node_modules/.bin/vsce package"
   },
   "overrides": {
@@ -104,6 +105,7 @@
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.32.0",
     "esbuild": "^0.28.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }
